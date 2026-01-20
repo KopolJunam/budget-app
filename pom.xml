@@ -29,4 +29,47 @@
 			<version>3.19.5</version>
 		</dependency>
 	</dependencies>
+	
+	<build>
+    <plugins>
+        <plugin>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq-codegen-maven</artifactId>
+            <version>3.19.5</version>
+
+            <executions>
+                <execution>
+                    <id>jooq-codegen</id>
+                    <phase>generate-sources</phase>
+                    <goals>
+                        <goal>generate</goal>
+                    </goals>
+                </execution>
+            </executions>
+
+            <configuration>
+                <jdbc>
+                    <driver>org.h2.Driver</driver>
+                    <!-- PASSEN SIE DIESEN PFAD AN -->
+                    <url>jdbc:h2:N:/Privat/Investitionen/Budget/budget;AUTO_SERVER=TRUE</url>
+                    <user></user>
+                    <password></password>
+                </jdbc>
+                <generator>
+                    <database>
+                        <name>org.jooq.meta.h2.H2Database</name>
+                        <includes>.*</includes>
+                        <excludes></excludes>
+                        <inputSchema>PUBLIC</inputSchema>
+                    </database>
+                    <target>
+                        <packageName>ch.kopolinfo.budget.model.jooq</packageName>
+                        <directory>target/generated-sources/jooq</directory>
+                    </target>
+                </generator>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+
 </project>
