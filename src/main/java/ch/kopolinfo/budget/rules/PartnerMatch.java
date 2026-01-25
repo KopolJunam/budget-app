@@ -16,7 +16,7 @@ public class PartnerMatch implements Rule {
 		return patternToCategory
 		.keySet()
 		.stream()
-		.filter(pattern -> payment.getPartnerName().contains(pattern))
+		.filter(pattern -> payment.getDescription().contains(pattern))
 		.map(patternToCategory::get)
 		.findFirst();
 	}

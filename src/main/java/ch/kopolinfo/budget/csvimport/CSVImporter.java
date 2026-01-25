@@ -2,9 +2,21 @@ package ch.kopolinfo.budget.csvimport;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.List;
 
+import org.jooq.DSLContext;
+import org.jooq.impl.DSL;
+
 import ch.kopolinfo.budget.db.AppDataContext;
+import ch.kopolinfo.budget.model.jooq.tables.pojos.Payment;
+import ch.kopolinfo.budget.model.jooq.tables.records.PaymentRecord;
+import ch.kopolinfo.budget.model.jooq.tables.records.TransactionRecord;
+import ch.kopolinfo.budget.rules.Rule;
+import ch.kopolinfo.budget.rules.RuleFactory;
+
+import static ch.kopolinfo.budget.model.jooq.tables.Payment.PAYMENT;
+import static ch.kopolinfo.budget.model.jooq.tables.Transaction.TRANSACTION;
 
 public class CSVImporter {
     private static final String DB_URL = "jdbc:h2:file:N:/Privat/Investitionen/Budget/budget;AUTO_SERVER=TRUE";
@@ -13,71 +25,113 @@ public class CSVImporter {
 
     private final AppDataContext context;
 
-    public CSVImporter() {
-        this.context = new AppDataContext();
-    }
-
-    public void initialize() {
-        try {
-            System.setProperty("org.jooq.no-logo", "true");
-            System.out.println("Initialisiere Anwendungskontext...");
-            
-            context.load(DB_URL, DB_USER, DB_PASSWORD);
-            
-            System.out.println("Initialisierung abgeschlossen.");
-        } catch (Exception e) {
-            System.err.println("Fehler bei der Initialisierung der Stammdaten!");
-            e.printStackTrace();
-        }
+    public CSVImporter(AppDataContext context) {
+    	this.context = context;
     }
 
     /**
      * Führt den Import-Prozess für eine Datei und einen Account aus.
      */
-    public void processImport(String accountId, String filePathStr) {
+    private void processImport(String accountId, String filePathStr) {
         try {
             System.out.println("Starte Import für Account: " + accountId);
             
-            // 1. Pfad validieren
             Path path = Paths.get(filePathStr);
             if (!path.toFile().exists()) {
                 throw new IllegalArgumentException("Datei nicht gefunden: " + filePathStr);
             }
 
-            // 2. Den richtigen Importer über die Factory im Context holen
             FileImporter fileImporter = context.getImporter(accountId);
             
-            // 3. Datei parsen (Daten werden geladen, aber noch nicht verarbeitet)
             System.out.println("Parse Datei: " + path.getFileName() + " mit " + fileImporter.getClass().getSimpleName());
             List<CsvRow> rows = fileImporter.parseFile(path);
 
-            if (rows != null) {
-                System.out.println("Erfolgreich " + rows.size() + " Zeilen eingelesen.");
-                // TODO: Hier folgt später der Aufruf an den ImporterService (DB Persistenz)
-            } else {
-                System.out.println("Der Importer lieferte keine Daten zurück.");
-            }
-
+            validateImportDate(accountId, rows);
+            
+            importPayments(accountId, rows);
         } catch (Exception e) {
             System.err.println("Fehler während des Import-Vorgangs:");
             e.printStackTrace();
         }
     }
 
+    private void validateImportDate(String accountId, List<CsvRow> rows) {
+        if (rows.isEmpty()) return;
+
+        // 1. Datum der ersten Buchung in der CSV (Annahme: sortiert)
+        LocalDate firstCsvDate = rows.get(0).bookingDate();
+
+        // 2. Letztes Buchungsdatum in der DB für dieses Konto
+        LocalDate lastDbDate = context.getLastBookingDate(accountId);
+
+        // 3. Fail-Fast Check
+        if (lastDbDate != null && !firstCsvDate.isAfter(lastDbDate)) {
+            throw new IllegalStateException(
+                String.format("Import abgebrochen: Erste Buchung am %s überschneidet sich mit bestehenden Daten (Letzte Buchung: %s).", 
+                firstCsvDate, lastDbDate)
+            );
+        }
+    }
+    
+    private void importPayments(String accountId, List<CsvRow> csvRows) {
+        // Die Rule-Engine für diesen Import-Lauf initialisieren
+        Rule ruleSet = RuleFactory.getRuleSet();
+        
+        // Alles in einer atomaren Transaktion
+        context.getDsl().transaction(configuration -> {
+            DSLContext txDsl = DSL.using(configuration);
+
+            for (CsvRow row : csvRows) {
+                // 1. PaymentRecord erstellen und persistieren
+                // (ID wird durch das insert() automatisch im Record aktualisiert)
+                PaymentRecord paymentRec = txDsl.newRecord(PAYMENT);
+                paymentRec.setAccountId(accountId);
+                paymentRec.setBookingDate(row.bookingDate());
+                paymentRec.setAmount(row.amount());
+                paymentRec.setDescription(row.description());
+                paymentRec.setRawCsvLine(row.rawLine());
+                paymentRec.insert(); 
+
+                // 2. Rule Engine anwenden
+                // Wir konvertieren den Record kurz in ein POJO für das Interface
+                Payment paymentPojo = paymentRec.into(Payment.class);
+                String categoryId = ruleSet.categoryFor(paymentPojo)
+                                           .orElse(context.getUnassignedCategory().getId());
+
+                // 3. TransactionRecord erstellen (die Verknüpfung)
+                TransactionRecord transRec = txDsl.newRecord(TRANSACTION);
+                transRec.setPaymentId(paymentRec.getPaymentId());
+                transRec.setCategoryId(categoryId);
+                transRec.setAmount(paymentRec.getAmount());
+                transRec.setValidFrom(paymentRec.getBookingDate());
+                transRec.setValidTo(paymentRec.getBookingDate());
+                transRec.setDescription(paymentRec.getDescription());
+                
+                transRec.insert();
+            }
+            
+            System.out.println(csvRows.size() + " Einträge erfolgreich verarbeitet.");
+        });
+    }    
+    
     public static void main(String[] args) {
         if (args.length < 2) {
             System.out.println("Usage: CSVImporter <account_id> <file_path>");
             return;
         }
 
-        String accountId = args[0];
-        String filePath = args[1];
-
-        CSVImporter importer = new CSVImporter();
-        importer.initialize();
-        
-        // Führt den Import-Vorgang aus (Parsing-Stufe)
-        importer.processImport(accountId, filePath);
+        // try-with-resources sorgt für automatisches Schließen
+        try (AppDataContext context = new AppDataContext(DB_URL, DB_USER, DB_PASSWORD)) {
+        	String accountId = args[0];
+	        String filePath = args[1];
+	
+	        CSVImporter importer = new CSVImporter(context);
+	        
+	        importer.processImport(accountId, filePath);
+        } catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     }
 
     public AppDataContext getContext() {

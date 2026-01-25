@@ -44,8 +44,7 @@ public class RaiffeisenImporter implements FileImporter {
                 rows.add(new CsvRow(
                     dateTime.toLocalDate(), // bookingDate
                     amount,                 // amount
-                    text,                   // partnerName (initial identisch mit Text)
-                    text,                   // purpose (initial identisch mit Text)
+                    text,                   // initial identisch mit Text
                     line                    // rawLine
                 ));
             }

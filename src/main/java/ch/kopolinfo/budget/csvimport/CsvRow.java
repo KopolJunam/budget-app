@@ -6,7 +6,6 @@ import java.time.LocalDate;
 public record CsvRow(
 	    LocalDate bookingDate,
 	    BigDecimal amount,
-	    String partnerName,
-	    String purpose,
+	    String description,
 	    String rawLine
 	) {}
