@@ -1,8 +1,14 @@
 package ch.kopolinfo.budget.csvimport;
 
+import static ch.kopolinfo.budget.model.jooq.Tables.IMPORT_LOG;
+import static ch.kopolinfo.budget.model.jooq.Tables.IMPORT_ENTRY;
+import static ch.kopolinfo.budget.model.jooq.Tables.PAYMENT;
+import static ch.kopolinfo.budget.model.jooq.Tables.TRANSACTION;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.jooq.DSLContext;
@@ -10,13 +16,12 @@ import org.jooq.impl.DSL;
 
 import ch.kopolinfo.budget.db.AppDataContext;
 import ch.kopolinfo.budget.model.jooq.tables.pojos.Payment;
+import ch.kopolinfo.budget.model.jooq.tables.records.ImportEntryRecord;
+import ch.kopolinfo.budget.model.jooq.tables.records.ImportLogRecord;
 import ch.kopolinfo.budget.model.jooq.tables.records.PaymentRecord;
 import ch.kopolinfo.budget.model.jooq.tables.records.TransactionRecord;
 import ch.kopolinfo.budget.rules.Rule;
 import ch.kopolinfo.budget.rules.RuleFactory;
-
-import static ch.kopolinfo.budget.model.jooq.tables.Payment.PAYMENT;
-import static ch.kopolinfo.budget.model.jooq.tables.Transaction.TRANSACTION;
 
 public class CSVImporter {
     private static final String DB_URL = "jdbc:h2:file:N:/Privat/Investitionen/Budget/budget;AUTO_SERVER=TRUE";
@@ -48,7 +53,7 @@ public class CSVImporter {
 
             validateImportDate(accountId, rows);
             
-            importPayments(accountId, rows);
+            importPayments(path.getFileName().toString(), accountId, rows);
         } catch (Exception e) {
             System.err.println("Fehler während des Import-Vorgangs:");
             e.printStackTrace();
@@ -73,7 +78,7 @@ public class CSVImporter {
         }
     }
     
-    private void importPayments(String accountId, List<CsvRow> csvRows) {
+    private void importPayments(String fileName, String accountId, List<CsvRow> csvRows) {
         // Die Rule-Engine für diesen Import-Lauf initialisieren
         Rule ruleSet = RuleFactory.getRuleSet();
         
@@ -81,6 +86,14 @@ public class CSVImporter {
         context.getDsl().transaction(configuration -> {
             DSLContext txDsl = DSL.using(configuration);
 
+            ImportLogRecord importLog = txDsl.newRecord(IMPORT_LOG);
+            importLog.setAccountId(accountId);
+            importLog.setImportDate(LocalDateTime.now());
+            importLog.setFileName(fileName);
+            importLog.insert();
+            
+            Integer currentImportId = importLog.getImportId();
+            
             for (CsvRow row : csvRows) {
                 // 1. PaymentRecord erstellen und persistieren
                 // (ID wird durch das insert() automatisch im Record aktualisiert)
@@ -108,6 +121,11 @@ public class CSVImporter {
                 transRec.setDescription(paymentRec.getDescription());
                 
                 transRec.insert();
+
+                ImportEntryRecord entryRec = txDsl.newRecord(IMPORT_ENTRY);
+                entryRec.setImportId(currentImportId);
+                entryRec.setPaymentId(paymentRec.getPaymentId());
+                entryRec.insert();
             }
             
             System.out.println(csvRows.size() + " Einträge erfolgreich verarbeitet.");
