@@ -7,7 +7,12 @@ import ch.kopolinfo.budget.model.jooq.tables.pojos.Payment;
 
 public class PartnerMatch implements Rule {
 	Map<String, String> patternToCategory = Map.of(
-			"MIGROS KREUZPLATZ", "MIGROSKREUZ"
+			"MIGROS KREUZPLATZ", "MIGROSKREUZ",
+			"Terzer", "TERZER",
+			"VEEN", "RESTERGON",
+			"ANDRES", "RESTERGON",
+			"SPUHLER", "RESTERGON",
+			"Bancomat Bezug", "CASH"
 			);
 			
 	

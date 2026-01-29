@@ -17,6 +17,7 @@ import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 
 import ch.kopolinfo.budget.csvimport.FileImporter;
+import ch.kopolinfo.budget.csvimport.importer.CembraImporter;
 import ch.kopolinfo.budget.csvimport.importer.RaiffeisenImporter;
 import ch.kopolinfo.budget.model.jooq.tables.pojos.Account;
 import ch.kopolinfo.budget.model.jooq.tables.pojos.Category;
@@ -84,8 +85,7 @@ public class AppDataContext implements AutoCloseable {
         // Zuordnung der IDs zu den konkreten Importer-Implementierungen
         return switch (accountId) {
             case "RAIFFEISEN_PRIVAT", "RAIFFEISEN_SPAR" -> new RaiffeisenImporter();
-            // Hier können später weitere Formate hinzugefügt werden
-            // case "REVOLUT_01" -> new RevolutImporter();
+            case "CEMBRA" -> new CembraImporter();
             default -> throw new UnsupportedOperationException("Keine Importer-Logik für Account-Typ " + accountId + " definiert.");
         };
     }
