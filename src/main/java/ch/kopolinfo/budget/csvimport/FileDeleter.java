@@ -15,10 +15,6 @@ import ch.kopolinfo.budget.db.AppDataContext;
 
 public class FileDeleter {
 
-    private static final String DB_URL = "jdbc:h2:file:N:/Privat/Investitionen/Budget/budget;AUTO_SERVER=TRUE";
-    private static final String DB_USER = "";
-    private static final String DB_PASSWORD = "";
-
     public static void main(String[] args) {
         // Erwartet nun: <HH:MM> <import_log_id>
         if (args.length < 2) {
@@ -36,7 +32,7 @@ public class FileDeleter {
             return;
         }
 
-        try (AppDataContext context = new AppDataContext(DB_URL, DB_USER, DB_PASSWORD)) {
+        try (AppDataContext context = new AppDataContext()) {
             DSLContext dsl = context.getDsl();
             System.out.println("Sicherheitscheck OK. Starte Löschvorgang für Import ID: " + importId);
 

@@ -24,10 +24,6 @@ import ch.kopolinfo.budget.rules.Rule;
 import ch.kopolinfo.budget.rules.RuleFactory;
 
 public class CSVImporter {
-    private static final String DB_URL = "jdbc:h2:file:N:/Privat/Investitionen/Budget/budget;AUTO_SERVER=TRUE";
-    private static final String DB_USER = "";
-    private static final String DB_PASSWORD = "";
-
     private final AppDataContext context;
 
     public CSVImporter(AppDataContext context) {
@@ -139,7 +135,7 @@ public class CSVImporter {
         }
 
         // try-with-resources sorgt für automatisches Schließen
-        try (AppDataContext context = new AppDataContext(DB_URL, DB_USER, DB_PASSWORD)) {
+        try (AppDataContext context = new AppDataContext()) {
         	String accountId = args[0];
 	        String filePath = args[1];
 	

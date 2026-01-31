@@ -25,6 +25,10 @@ import ch.kopolinfo.budget.model.jooq.tables.pojos.CategoryGroup;
 import ch.kopolinfo.budget.model.jooq.tables.pojos.Currency;
 
 public class AppDataContext implements AutoCloseable {
+    private static final String DB_URL = "jdbc:h2:file:N:/Privat/Investitionen/Budget/budget;AUTO_SERVER=TRUE";
+    private static final String DB_USER = "";
+    private static final String DB_PASSWORD = "";
+
     private final Connection connection;
     private final DSLContext dsl;
 
@@ -33,9 +37,9 @@ public class AppDataContext implements AutoCloseable {
     private Map<String, CategoryGroup> categoryGroups;
     private Map<String, Currency> currencies;
 
-    public AppDataContext(String url, String user, String password) throws Exception {
+    public AppDataContext() throws Exception {
         // Initialisierung der finalen Member
-        this.connection = DriverManager.getConnection(url, user, password);
+        this.connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
         this.dsl = DSL.using(connection);
         
         // jOOQ-Logo unterdrücken (optional, falls gewünscht)

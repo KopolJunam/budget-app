@@ -14,14 +14,10 @@ import ch.kopolinfo.budget.model.jooq.tables.records.TransactionRecord;
 
 public class RulesApplier {
 
-    private static final String DB_URL = "jdbc:h2:file:N:/Privat/Investitionen/Budget/budget;AUTO_SERVER=TRUE";
-    private static final String DB_USER = "";
-    private static final String DB_PASSWORD = "";
-
     public static void main(String[] args) {
         System.setProperty("org.jooq.no-logo", "true");
 
-        try (AppDataContext context = new AppDataContext(DB_URL, DB_USER, DB_PASSWORD)) {
+        try (AppDataContext context = new AppDataContext()) {
             DSLContext dsl = context.getDsl();
             Rule ruleSet = RuleFactory.getRuleSet();
             String unassignedId = context.getUnassignedCategory().getId();
